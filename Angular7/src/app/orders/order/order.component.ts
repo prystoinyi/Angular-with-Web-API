@@ -6,7 +6,7 @@ import { OrderItemsComponent } from '../order-items/order-items.component';
 import { CustomerService } from 'src/app/shared/customer.service';
 import { Customer } from 'src/app/shared/customer.model';
 import { ToastrService } from 'ngx-toastr';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-order',
@@ -21,10 +21,19 @@ export class OrderComponent implements OnInit {
   constructor(private service: OrderService, private dialog: MatDialog,
     private customerService: CustomerService,
     private toastr: ToastrService,
-    private router: Router) { }
+    private router: Router,
+    private currentRoute: ActivatedRoute) { }
 
   ngOnInit() {
-    this.resetForm();
+    let orderID = this.currentRoute.snapshot.paramMap.get('id');
+    if (orderID == null)
+      this.resetForm();
+    else {
+      this.service.getOrderByID(parseInt(orderID)).then(res => {
+        this.service.formData = res.order;
+        this.service.orderItems = res.orderDetails;
+      });
+    }
 
     this.customerService.getCustomerList().then(res => this.customerList = res as Customer[]);
   }
@@ -37,7 +46,8 @@ export class OrderComponent implements OnInit {
       OrderNo: Math.floor(100000 + Math.random() * 900000).toString(),
       CustomerID: 0,
       PMethod: '',
-      GTotal: 0
+      GTotal: 0,
+      DeletedOrderItemIDs: ''
     };
     this.service.orderItems = [];
   }
@@ -54,6 +64,8 @@ export class OrderComponent implements OnInit {
   }
 
   onDeleteOrderItem(orderItemID: number, i: number) {
+    if (orderItemID != null)
+      this.service.formData.DeletedOrderItemIDs += orderItemID + ",";
     this.service.orderItems.splice(i, 1);
     this.updateGrandTotal();
   }
@@ -75,8 +87,8 @@ export class OrderComponent implements OnInit {
     return this.isValid;
   }
 
-  onSubmit(form:NgForm) {
-    if(this.validateForm()) {
+  onSubmit(form: NgForm) {
+    if (this.validateForm()) {
       this.service.saveOrUpdateOrder().subscribe(res => {
         this.resetForm();
         this.toastr.success('Submitted Successfully', 'Restaurent App.');
